@@ -9,9 +9,8 @@ use structopt::StructOpt;
 struct Opt {
     #[structopt(short, long)]
     verbose: bool,
-    
-    // The IP address/hostname and port of the meter
-    // e.g., 192.168.1.100:502
+
+    #[structopt(help="IP address/hostname and port of meter, e.g., 192.168.1.100:502")]
     meter: String,
 }
 
