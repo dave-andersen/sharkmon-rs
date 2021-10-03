@@ -22,6 +22,17 @@ Use:
    ./target/release/sharkmon 192.168.1.100:502
 ```
 
+If you just want to have the output logged to console or to a file, use:
+```
+   sharkmon -n <meter>
+```
+
+Example output:
+```
+{"watts":15944.473,"volts":237.37653,"frequency":59.980522}
+{"watts":15939.086,"volts":237.3808,"frequency":59.980812}
+```
+
 Note that sharkmon expects the file "sharkmon.html" to be in the same directory from which you run it.
 
 
