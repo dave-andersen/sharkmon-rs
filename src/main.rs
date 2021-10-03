@@ -3,6 +3,7 @@ use actix_web::{get, web, App, HttpResponse};
 use serde::Serialize;
 use std::sync::{Arc, Mutex};
 use structopt::StructOpt;
+use std::ops::Deref;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "sharkmon", about = "Shark 100S power meter web gateway")]
@@ -12,6 +13,9 @@ struct Opt {
 
     #[structopt(help="IP address/hostname and port of meter, e.g., 192.168.1.100:502")]
     meter: String,
+
+    #[structopt(short, long="no-web", help="Disable built in web server (implies verbose)")]
+    no_web: bool
 }
 
 fn beu16x2_to_f32(a: &[u16]) -> f32 {
@@ -21,6 +25,7 @@ fn beu16x2_to_f32(a: &[u16]) -> f32 {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct PowerEwma {
+    #[serde(skip_serializing)]
     initialized: bool,
     pub watts: f32,
     pub volts: f32,
@@ -81,8 +86,7 @@ pub async fn update_pe<T: tokio_modbus::client::Reader>(
 #[get("/power")]
 async fn power(data: web::Data<Arc<Mutex<PowerEwma>>>) -> actix_web::Result<HttpResponse> {
     let pe = {
-        let d = data.lock().unwrap();
-        d.clone()
+        data.lock().unwrap().clone()
     };
     Ok(HttpResponse::Ok().json(pe))
 }
@@ -116,8 +120,8 @@ pub async fn device_update_connect_loop(
         match update_pe(&mut ctx, &mut pe_mutex).await {
             Ok(_) => {
                 if verbose {
-                    let pe = pe_mutex.lock().unwrap();
-                    println!("Volts: {} watts: {} frequency: {}", pe.volts, pe.watts, pe.frequency);
+                    let guard = pe_mutex.lock().unwrap();
+                    println!("{}", serde_json::to_string(guard.deref()).unwrap());
                 }
             }
             Err(e) => {
@@ -142,17 +146,21 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pe: Arc<Mutex<PowerEwma>> = Arc::new(Mutex::new(PowerEwma::new()));
     let peclone = pe.clone();
-    tokio::spawn(async move { device_update(peclone, opt.meter, opt.verbose).await });
-    let appdata = web::Data::new(pe);
+    if opt.no_web {
+        device_update(peclone, opt.meter, true).await;
+    } else {
+        tokio::spawn(async move { device_update(peclone, opt.meter, opt.verbose).await });
+        let appdata = web::Data::new(pe);
 
-    actix_web::HttpServer::new(move || {
-        App::new()
-            .app_data(appdata.clone())
-            .service(power)
-            .service(index)
-    })
-    .bind("0.0.0.0:8081")?
-    .run()
-    .await?;
+        actix_web::HttpServer::new(move || {
+            App::new()
+                .app_data(appdata.clone())
+                .service(power)
+                .service(index)
+        })
+        .bind("0.0.0.0:8081")?
+        .run()
+        .await?;
+    }
     Ok(())
 }
