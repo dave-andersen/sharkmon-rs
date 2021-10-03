@@ -19,7 +19,7 @@ Use:
 
 ```
    cargo build --release
-   ./target/release/sharkmon
+   ./target/release/sharkmon 192.168.1.100:502
 ```
 
 Note that sharkmon expects the file "sharkmon.html" to be in the same directory from which you run it.

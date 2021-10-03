@@ -7,6 +7,9 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 #[structopt(name = "sharkmon", about = "Shark 100S power meter web gateway")]
 struct Opt {
+    #[structopt(short, long)]
+    verbose: bool,
+    
     // The IP address/hostname and port of the meter
     // e.g., 192.168.1.100:502
     meter: String,
@@ -85,9 +88,9 @@ async fn power(data: web::Data<Arc<Mutex<PowerEwma>>>) -> actix_web::Result<Http
     Ok(HttpResponse::Ok().json(pe))
 }
 
-pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String) {
+pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String, verbose: bool) {
     loop {
-        let _ignore = device_update_connect_loop(&pe_mutex, &meter).await;
+        let _ignore = device_update_connect_loop(&pe_mutex, &meter, verbose).await;
         println!("Connection error, sleeping and retrying");
         {
             let mut pe = pe_mutex.lock().unwrap();
@@ -100,6 +103,7 @@ pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String) {
 pub async fn device_update_connect_loop(
     mut pe_mutex: &Arc<Mutex<PowerEwma>>,
     meter: &str,
+    verbose: bool
 ) -> std::io::Result<()> {
     use tokio_modbus::prelude::*;
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
@@ -112,8 +116,10 @@ pub async fn device_update_connect_loop(
     loop {
         match update_pe(&mut ctx, &mut pe_mutex).await {
             Ok(_) => {
-                // let pe = pe_mutex.lock().unwrap();
-                // println!("Volts: {} watts: {} frequency: {}", pe.volts, pe.watts, pe.frequency);
+                if verbose {
+                    let pe = pe_mutex.lock().unwrap();
+                    println!("Volts: {} watts: {} frequency: {}", pe.volts, pe.watts, pe.frequency);
+                }
             }
             Err(e) => {
                 println!("Error getting device update: {}", e);
@@ -137,7 +143,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pe: Arc<Mutex<PowerEwma>> = Arc::new(Mutex::new(PowerEwma::new()));
     let peclone = pe.clone();
-    tokio::spawn(async move { device_update(peclone, opt.meter).await });
+    tokio::spawn(async move { device_update(peclone, opt.meter, opt.verbose).await });
     let appdata = web::Data::new(pe);
 
     actix_web::HttpServer::new(move || {
