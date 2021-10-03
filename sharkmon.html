@@ -17,16 +17,16 @@
 
       function gotValue() {
           var obj = JSON.parse(this.responseText)
-          document.getElementById("watts").innerHTML = obj.watts;
-          document.getElementById("volts").innerHTML = obj.volts;
-          document.getElementById("frequency").innerHTML = obj.frequency;
+	  document.getElementById("watts").innerHTML = Number.parseFloat(obj.watts).toFixed(1);
+          document.getElementById("volts").innerHTML = Number.parseFloat(obj.volts).toFixed(2);
+          document.getElementById("frequency").innerHTML = Number.parseFloat(obj.frequency).toFixed(2);
       }
 
       var oReq = new XMLHttpRequest();
       oReq.addEventListener("load", gotValue);
       function updateValue() {
-      oReq.open("GET", "/power");
-      oReq.send();
+          oReq.open("GET", "/power");
+          oReq.send();
       }
       updateValue();
       var intervalID = setInterval(updateValue, 2000);  // 2 seconds

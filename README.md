@@ -14,3 +14,14 @@ Visit http://localhost:8081/ to see the page, or
 http://localhost:8081/power to see a JSON summary of the power data.
 
 ![screen shot of sharkmon web page](https://github.com/dave-andersen/sharkmon-rs/blob/main/sharkmon.png?raw=true)
+
+Use:
+
+```
+   cargo build --release
+   ./target/release/sharkmon
+```
+
+Note that sharkmon expects the file "sharkmon.html" to be in the same directory from which you run it.
+
+
