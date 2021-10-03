@@ -1,16 +1,15 @@
-use std::sync::{Arc, Mutex};
-use serde::Serialize;
-use actix_web::{web, get, HttpResponse, App};
 use actix_files::NamedFile;
+use actix_web::{get, web, App, HttpResponse};
+use serde::Serialize;
+use std::sync::{Arc, Mutex};
 use structopt::StructOpt;
-
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "sharkmon", about = "Shark 100S power meter web gateway")]
 struct Opt {
     // The IP address/hostname and port of the meter
     // e.g., 192.168.1.100:502
-    meter: String
+    meter: String,
 }
 
 fn beu16x2_to_f32(a: &[u16]) -> f32 {
@@ -32,8 +31,13 @@ fn ewma(a: f32, b: f32, ewma: f32) -> f32 {
 }
 
 impl PowerEwma {
-    fn new() ->  PowerEwma {
-        PowerEwma { initialized: false, watts: 0.0, volts: 0.0, frequency: 0.0 }
+    fn new() -> PowerEwma {
+        PowerEwma {
+            initialized: false,
+            watts: 0.0,
+            volts: 0.0,
+            frequency: 0.0,
+        }
     }
     fn update(&mut self, watts: f32, volts: f32, frequency: f32) {
         if !self.initialized {
@@ -58,8 +62,10 @@ const REG_WATTS: u16 = 0x383;
 const REG_VOLTS: u16 = 0x03ED;
 const REG_FREQ: u16 = 0x0401;
 
-
-pub async fn update_pe<T: tokio_modbus::client::Reader>(ctx: &mut T, pe_mutex: &Mutex<PowerEwma>) -> std::io::Result<()> {
+pub async fn update_pe<T: tokio_modbus::client::Reader>(
+    ctx: &mut T,
+    pe_mutex: &Mutex<PowerEwma>,
+) -> std::io::Result<()> {
     let watts = read_f32(ctx, REG_WATTS).await?;
     let volts = read_f32(ctx, REG_VOLTS).await?;
     let frequency = read_f32(ctx, REG_FREQ).await?;
@@ -79,9 +85,9 @@ async fn power(data: web::Data<Arc<Mutex<PowerEwma>>>) -> actix_web::Result<Http
     Ok(HttpResponse::Ok().json(pe))
 }
 
-pub async fn device_update(mut pe_mutex: Arc<Mutex<PowerEwma>>, meter: String) {
+pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String) {
     loop {
-        let _ignore = device_update_connect_loop(&mut pe_mutex, &meter).await;
+        let _ignore = device_update_connect_loop(&pe_mutex, &meter).await;
         println!("Connection error, sleeping and retrying");
         {
             let mut pe = pe_mutex.lock().unwrap();
@@ -91,11 +97,14 @@ pub async fn device_update(mut pe_mutex: Arc<Mutex<PowerEwma>>, meter: String) {
     }
 }
 
-pub async fn device_update_connect_loop(mut pe_mutex: &Arc<Mutex<PowerEwma>>, meter: &str) -> std::io::Result<()> {
+pub async fn device_update_connect_loop(
+    mut pe_mutex: &Arc<Mutex<PowerEwma>>,
+    meter: &str,
+) -> std::io::Result<()> {
     use tokio_modbus::prelude::*;
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
 
-    let socket_addr = meter.parse().unwrap(); 
+    let socket_addr = meter.parse().unwrap();
 
     let mut ctx = tcp::connect(socket_addr).await?;
     ctx.set_slave(Slave::from(1));
@@ -105,12 +114,12 @@ pub async fn device_update_connect_loop(mut pe_mutex: &Arc<Mutex<PowerEwma>>, me
             Ok(_) => {
                 // let pe = pe_mutex.lock().unwrap();
                 // println!("Volts: {} watts: {} frequency: {}", pe.volts, pe.watts, pe.frequency);
-            },
+            }
             Err(e) => {
                 println!("Error getting device update: {}", e);
                 let mut pe = pe_mutex.lock().unwrap();
                 pe.update(0.0, 0.0, 0.0);
-                return Err(e)
+                return Err(e);
             }
         }
         interval.tick().await;
@@ -124,24 +133,21 @@ pub async fn index(_req: actix_web::HttpRequest) -> actix_web::Result<NamedFile>
 
 #[actix_web::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     let opt = Opt::from_args();
 
     let pe: Arc<Mutex<PowerEwma>> = Arc::new(Mutex::new(PowerEwma::new()));
     let peclone = pe.clone();
-    tokio::spawn(async move {
-        device_update(peclone, opt.meter).await
-    });
+    tokio::spawn(async move { device_update(peclone, opt.meter).await });
     let appdata = web::Data::new(pe);
 
-    actix_web::HttpServer::new(move ||
+    actix_web::HttpServer::new(move || {
         App::new()
             .app_data(appdata.clone())
             .service(power)
             .service(index)
-    )
-        .bind("0.0.0.0:8081")?
-        .run()
-        .await?;
+    })
+    .bind("0.0.0.0:8081")?
+    .run()
+    .await?;
     Ok(())
 }
