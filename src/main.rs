@@ -1,9 +1,9 @@
 use actix_files::NamedFile;
 use actix_web::{get, web, App, HttpResponse};
 use serde::Serialize;
+use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use structopt::StructOpt;
-use std::ops::Deref;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "sharkmon", about = "Shark 100S power meter web gateway")]
@@ -11,11 +11,15 @@ struct Opt {
     #[structopt(short, long)]
     verbose: bool,
 
-    #[structopt(help="IP address/hostname and port of meter, e.g., 192.168.1.100:502")]
+    #[structopt(help = "IP address/hostname and port of meter, e.g., 192.168.1.100:502")]
     meter: String,
 
-    #[structopt(short, long="no-web", help="Disable built in web server (implies verbose)")]
-    no_web: bool
+    #[structopt(
+        short,
+        long = "no-web",
+        help = "Disable built in web server (implies verbose)"
+    )]
+    no_web: bool,
 }
 
 fn beu16x2_to_f32(a: &[u16]) -> f32 {
@@ -85,9 +89,7 @@ pub async fn update_pe<T: tokio_modbus::client::Reader>(
 
 #[get("/power")]
 async fn power(data: web::Data<Arc<Mutex<PowerEwma>>>) -> actix_web::Result<HttpResponse> {
-    let pe = {
-        data.lock().unwrap().clone()
-    };
+    let pe = { data.lock().unwrap().clone() };
     Ok(HttpResponse::Ok().json(pe))
 }
 
@@ -104,9 +106,9 @@ pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String, verbo
 }
 
 pub async fn device_update_connect_loop(
-    mut pe_mutex: &Arc<Mutex<PowerEwma>>,
+    pe_mutex: &Arc<Mutex<PowerEwma>>,
     meter: &str,
-    verbose: bool
+    verbose: bool,
 ) -> std::io::Result<()> {
     use tokio_modbus::prelude::*;
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
@@ -117,7 +119,7 @@ pub async fn device_update_connect_loop(
     ctx.set_slave(Slave::from(1));
 
     loop {
-        match update_pe(&mut ctx, &mut pe_mutex).await {
+        match update_pe(&mut ctx, pe_mutex).await {
             Ok(_) => {
                 if verbose {
                     let guard = pe_mutex.lock().unwrap();
