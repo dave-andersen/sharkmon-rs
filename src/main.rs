@@ -1,6 +1,7 @@
 use actix_files::NamedFile;
 use actix_web::{get, web, App, HttpResponse};
 use serde::Serialize;
+use std::io::Write;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use structopt::StructOpt;
@@ -93,7 +94,7 @@ async fn power(data: web::Data<Arc<Mutex<PowerEwma>>>) -> actix_web::Result<Http
     Ok(HttpResponse::Ok().json(pe))
 }
 
-pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String, verbose: bool) {
+pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String, verbose: bool) -> ! {
     loop {
         let _ignore = device_update_connect_loop(&pe_mutex, &meter, verbose).await;
         println!("Connection error, sleeping and retrying");
@@ -120,10 +121,12 @@ pub async fn device_update_connect_loop(
 
     loop {
         match update_pe(&mut ctx, pe_mutex).await {
-            Ok(_) => {
+            Ok(()) => {
                 if verbose {
                     let guard = pe_mutex.lock().unwrap();
-                    println!("{}", serde_json::to_string(guard.deref()).unwrap());
+                    std::io::stdout()
+                        .write_all(serde_json::to_string(guard.deref()).unwrap().as_bytes())
+                        .expect("Could not write to stdout");
                 }
             }
             Err(e) => {
@@ -143,13 +146,13 @@ pub async fn index(_req: actix_web::HttpRequest) -> actix_web::Result<NamedFile>
 }
 
 #[actix_web::main]
-pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn main() -> std::io::Result<()> {
     let opt = Opt::from_args();
 
     let pe: Arc<Mutex<PowerEwma>> = Arc::new(Mutex::new(PowerEwma::new()));
     let peclone = pe.clone();
     if opt.no_web {
-        device_update(peclone, opt.meter, true).await;
+        device_update(peclone, opt.meter, true).await
     } else {
         tokio::spawn(async move { device_update(peclone, opt.meter, opt.verbose).await });
         let appdata = web::Data::new(pe);
@@ -162,7 +165,6 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .bind("0.0.0.0:8081")?
         .run()
-        .await?;
+        .await
     }
-    Ok(())
 }
