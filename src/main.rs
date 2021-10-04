@@ -2,7 +2,6 @@ use actix_files::NamedFile;
 use actix_web::{get, web, App, HttpResponse};
 use serde::Serialize;
 use std::io::Write;
-use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use structopt::StructOpt;
 
@@ -81,16 +80,13 @@ pub async fn update_pe<T: tokio_modbus::client::Reader>(
     let watts = read_f32(ctx, REG_WATTS).await?;
     let volts = read_f32(ctx, REG_VOLTS).await?;
     let frequency = read_f32(ctx, REG_FREQ).await?;
-    {
-        let mut pe = pe_mutex.lock().unwrap();
-        pe.update(watts, volts, frequency);
-    }
+    pe_mutex.lock().unwrap().update(watts, volts, frequency);
     Ok(())
 }
 
 #[get("/power")]
 async fn power(data: web::Data<Arc<Mutex<PowerEwma>>>) -> actix_web::Result<HttpResponse> {
-    let pe = { data.lock().unwrap().clone() };
+    let pe = data.lock().unwrap().clone();
     Ok(HttpResponse::Ok().json(pe))
 }
 
@@ -98,10 +94,7 @@ pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String, verbo
     loop {
         let _ignore = device_update_connect_loop(&pe_mutex, &meter, verbose).await;
         println!("Connection error, sleeping and retrying");
-        {
-            let mut pe = pe_mutex.lock().unwrap();
-            pe.update(0.0, 0.0, 0.0);
-        }
+        pe_mutex.lock().unwrap().update(0.0, 0.0, 0.0);
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     }
 }
@@ -123,16 +116,15 @@ pub async fn device_update_connect_loop(
         match update_pe(&mut ctx, pe_mutex).await {
             Ok(()) => {
                 if verbose {
-                    let guard = pe_mutex.lock().unwrap();
+                    let pe = pe_mutex.lock().unwrap().clone();
                     std::io::stdout()
-                        .write_all(serde_json::to_string(guard.deref()).unwrap().as_bytes())
+                        .write_all(serde_json::to_string(&pe).unwrap().as_bytes())
                         .expect("Could not write to stdout");
                 }
             }
             Err(e) => {
                 println!("Error getting device update: {}", e);
-                let mut pe = pe_mutex.lock().unwrap();
-                pe.update(0.0, 0.0, 0.0);
+                pe_mutex.lock().unwrap().update(0.0, 0.0, 0.0);
                 return Err(e);
             }
         }
