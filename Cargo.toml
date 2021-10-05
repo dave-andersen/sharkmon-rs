@@ -8,7 +8,6 @@ edition = "2018"
 [dependencies]
 tokio = { version = "1.10.1", features = ["full"] }
 tokio-modbus = "0.5"
-byteorder = "*"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 actix-web = "4.0.0-beta.9"

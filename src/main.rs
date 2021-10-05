@@ -27,7 +27,7 @@ fn beu16x2_to_f32(a: &[u16]) -> f32 {
     f32::from_bits(as_u)
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone, Default)]
 pub struct PowerEwma {
     #[serde(skip_serializing)]
     initialized: bool,
@@ -43,12 +43,7 @@ fn ewma(a: f32, b: f32, ewma: f32) -> f32 {
 
 impl PowerEwma {
     fn new() -> PowerEwma {
-        PowerEwma {
-            initialized: false,
-            watts: 0.0,
-            volts: 0.0,
-            frequency: 0.0,
-        }
+        PowerEwma::default()
     }
     fn update(&mut self, watts: f32, volts: f32, frequency: f32) {
         if !self.initialized {
@@ -85,9 +80,9 @@ pub async fn update_pe<T: tokio_modbus::client::Reader>(
 }
 
 #[get("/power")]
-async fn power(data: web::Data<Arc<Mutex<PowerEwma>>>) -> actix_web::Result<HttpResponse> {
+async fn power(data: web::Data<Arc<Mutex<PowerEwma>>>) -> HttpResponse {
     let pe = data.lock().unwrap().clone();
-    Ok(HttpResponse::Ok().json(pe))
+    HttpResponse::Ok().json(pe)
 }
 
 pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String, verbose: bool) -> ! {
