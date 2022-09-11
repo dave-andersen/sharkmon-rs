@@ -5,7 +5,7 @@ use std::io::Write;
 use std::sync::{Arc, Mutex};
 use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
+#[derive(StructOpt)]
 #[structopt(name = "sharkmon", about = "Shark 100S power meter web gateway")]
 struct Opt {
     #[structopt(short, long)]
@@ -23,8 +23,7 @@ struct Opt {
 }
 
 fn beu16x2_to_f32(a: &[u16]) -> f32 {
-    let as_u = (a[0] as u32) << 16 | (a[1] as u32);
-    f32::from_bits(as_u)
+    f32::from_bits((a[0] as u32) << 16 | (a[1] as u32))
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
@@ -90,7 +89,7 @@ pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String, verbo
         let _ignore = device_update_connect_loop(&pe_mutex, &meter, verbose).await;
         println!("Connection error, sleeping and retrying");
         pe_mutex.lock().unwrap().update(0.0, 0.0, 0.0);
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        actix_web::rt::time::sleep(std::time::Duration::from_secs(2)).await;
     }
 }
 
@@ -100,7 +99,7 @@ pub async fn device_update_connect_loop(
     verbose: bool,
 ) -> std::io::Result<()> {
     use tokio_modbus::prelude::*;
-    let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+    let mut interval = actix_web::rt::time::interval(std::time::Duration::from_secs(1));
 
     let socket_addr = meter.parse().unwrap();
 
@@ -141,7 +140,7 @@ pub async fn main() -> std::io::Result<()> {
     if opt.no_web {
         device_update(peclone, opt.meter, true).await
     } else {
-        tokio::spawn(async move { device_update(peclone, opt.meter, opt.verbose).await });
+        actix_web::rt::spawn(async move { device_update(peclone, opt.meter, opt.verbose).await });
         let appdata = web::Data::new(pe);
 
         actix_web::HttpServer::new(move || {
@@ -150,6 +149,7 @@ pub async fn main() -> std::io::Result<()> {
                 .service(power)
                 .service(index)
         })
+        .workers(1)
         .bind("0.0.0.0:8081")?
         .run()
         .await
