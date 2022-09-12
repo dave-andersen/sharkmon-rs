@@ -1,5 +1,6 @@
-use actix_files::NamedFile;
-use actix_web::{get, web, App, HttpResponse};
+use axum::{
+    extract::Extension, http::StatusCode, routing::get, routing::get_service, Json, Router,
+};
 use serde::Serialize;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
@@ -78,10 +79,8 @@ pub async fn update_pe<T: tokio_modbus::client::Reader>(
     Ok(())
 }
 
-#[get("/power")]
-async fn power(data: web::Data<Arc<Mutex<PowerEwma>>>) -> HttpResponse {
-    let pe = data.lock().unwrap().clone();
-    HttpResponse::Ok().json(pe)
+async fn power(Extension(data): Extension<Arc<Mutex<PowerEwma>>>) -> Json<PowerEwma> {
+    Json(data.lock().unwrap().clone())
 }
 
 pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String, verbose: bool) -> ! {
@@ -89,7 +88,7 @@ pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String, verbo
         let _ignore = device_update_connect_loop(&pe_mutex, &meter, verbose).await;
         println!("Connection error, sleeping and retrying");
         pe_mutex.lock().unwrap().update(0.0, 0.0, 0.0);
-        actix_web::rt::time::sleep(std::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     }
 }
 
@@ -99,7 +98,7 @@ pub async fn device_update_connect_loop(
     verbose: bool,
 ) -> std::io::Result<()> {
     use tokio_modbus::prelude::*;
-    let mut interval = actix_web::rt::time::interval(std::time::Duration::from_secs(1));
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
 
     let socket_addr = meter.parse().unwrap();
 
@@ -126,32 +125,37 @@ pub async fn device_update_connect_loop(
     }
 }
 
-#[get("/")]
-pub async fn index(_req: actix_web::HttpRequest) -> actix_web::Result<NamedFile> {
-    Ok(NamedFile::open("./sharkmon.html")?)
-}
-
-#[actix_web::main]
+#[tokio::main]
 pub async fn main() -> std::io::Result<()> {
     let opt = Opt::from_args();
 
-    let pe: Arc<Mutex<PowerEwma>> = Arc::new(Mutex::new(PowerEwma::new()));
+    let pe = Arc::new(Mutex::new(PowerEwma::new()));
     let peclone = pe.clone();
     if opt.no_web {
-        device_update(peclone, opt.meter, true).await
+        device_update(pe, opt.meter, true).await
     } else {
-        actix_web::rt::spawn(async move { device_update(peclone, opt.meter, opt.verbose).await });
-        let appdata = web::Data::new(pe);
+        tokio::spawn(async move { device_update(pe, opt.meter, opt.verbose).await });
 
-        actix_web::HttpServer::new(move || {
-            App::new()
-                .app_data(appdata.clone())
-                .service(power)
-                .service(index)
-        })
-        .workers(1)
-        .bind("0.0.0.0:8081")?
-        .run()
-        .await
+        let app = Router::new()
+            .route(
+                "/",
+                get_service(tower_http::services::ServeFile::new("sharkmon.html")).handle_error(
+                    |error: std::io::Error| async move {
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            format!("Unhandled internal error: {}", error),
+                        )
+                    },
+                ),
+            )
+            .route("/power", get(power))
+            .layer(Extension(peclone));
+
+        let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 8081));
+        axum::Server::bind(&addr)
+            .serve(app.into_make_service())
+            .await
+            .unwrap();
     }
+    Ok(())
 }
