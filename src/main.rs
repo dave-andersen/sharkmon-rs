@@ -1,6 +1,7 @@
 use axum::{
     extract::Extension, http::StatusCode, routing::get, routing::get_service, Json, Router,
 };
+use log::{error, warn};
 use serde::Serialize;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
@@ -85,8 +86,10 @@ async fn power(Extension(data): Extension<Arc<Mutex<PowerEwma>>>) -> Json<PowerE
 
 pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String, verbose: bool) -> ! {
     loop {
-        let _ignore = device_update_connect_loop(&pe_mutex, &meter, verbose).await;
-        println!("Connection error, sleeping and retrying");
+        let someerr = device_update_connect_loop(&pe_mutex, &meter, verbose).await;
+        if let Err(e) = someerr {
+            error!("Connection error, sleeping and retrying: {}", e);
+        }
         pe_mutex.lock().unwrap().update(0.0, 0.0, 0.0);
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     }
@@ -116,7 +119,7 @@ pub async fn device_update_connect_loop(
                 }
             }
             Err(e) => {
-                println!("Error getting device update: {}", e);
+                error!("Error getting device update: {}", e);
                 pe_mutex.lock().unwrap().update(0.0, 0.0, 0.0);
                 return Err(e);
             }
@@ -128,6 +131,8 @@ pub async fn device_update_connect_loop(
 #[tokio::main]
 pub async fn main() -> std::io::Result<()> {
     let opt = Opt::from_args();
+
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
 
     let pe = Arc::new(Mutex::new(PowerEwma::new()));
     let peclone = pe.clone();
@@ -152,6 +157,7 @@ pub async fn main() -> std::io::Result<()> {
             .layer(Extension(peclone));
 
         let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 8081));
+        warn!("sharkmon starting on address {}", addr);
         axum::Server::bind(&addr)
             .serve(app.into_make_service())
             .await
