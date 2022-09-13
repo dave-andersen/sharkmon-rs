@@ -12,7 +12,7 @@ tokio-modbus = "0.5"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 axum = "*"
-structopt = "*"
+clap = {version = "*", features = ["derive"] }
 log = "*"
 env_logger = "*"
 

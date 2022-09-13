@@ -5,18 +5,18 @@ use log::{error, warn};
 use serde::Serialize;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
-use structopt::StructOpt;
+use clap::Parser;
 
-#[derive(StructOpt)]
-#[structopt(name = "sharkmon", about = "Shark 100S power meter web gateway")]
+#[derive(Parser)]
+#[clap(name = "sharkmon", about = "Shark 100S power meter web gateway")]
 struct Opt {
-    #[structopt(short, long)]
+    #[clap(short, long)]
     verbose: bool,
 
-    #[structopt(help = "IP address/hostname and port of meter, e.g., 192.168.1.100:502")]
+    #[clap(help = "IP address/hostname and port of meter, e.g., 192.168.1.100:502")]
     meter: String,
 
-    #[structopt(
+    #[clap(
         short,
         long = "no-web",
         help = "Disable built in web server (implies verbose)"
@@ -130,7 +130,7 @@ pub async fn device_update_connect_loop(
 
 #[tokio::main]
 pub async fn main() -> std::io::Result<()> {
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
 
