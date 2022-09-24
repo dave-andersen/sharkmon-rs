@@ -25,3 +25,7 @@ env_logger = "*"
 
 [profile.release]
 lto = true
+
+[build-dependencies]
+clap_mangen = "0.1"
+clap = {version = "*", features = ["derive"]}

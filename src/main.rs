@@ -1,3 +1,9 @@
+//! Sharkmon is a binary, not a library. It runs a small web server that
+//! displays the current power status of the monitored Shark power monitor.
+//! It can instead run as a command line utility to display the status locally.
+//! 
+//! See the 'Opt' struct for a description of command-line options.
+
 use axum::{
     extract::Extension, http::StatusCode, routing::get, routing::get_service, Json, Router,
 };
@@ -7,19 +13,22 @@ use std::io::Write;
 use std::sync::{Arc, Mutex};
 use clap::Parser;
 
+/// Shark 100S power meter web gateway
 #[derive(Parser)]
-#[clap(name = "sharkmon", about = "Shark 100S power meter web gateway")]
+#[clap(name = "sharkmon", about, author, version)]
 struct Opt {
+    /// Show every message received from the power meter
     #[clap(short, long)]
     verbose: bool,
 
-    #[clap(help = "IP address/hostname and port of meter, e.g., 192.168.1.100:502")]
+    /// The IP address/hostname and port of meter, e.g., 192.168.1.100:502
     meter: String,
 
+
+    /// Disable the built in web server and show updates on the command line
     #[clap(
         short,
         long = "no-web",
-        help = "Disable built in web server (implies verbose)"
     )]
     no_web: bool,
 }
