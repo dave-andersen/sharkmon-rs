@@ -8,6 +8,7 @@ readme = "README.md"
 keywords = ["shark", "modbus", "power"]
 homepage = "https://github.com/dave-andersen/sharkmon-rs"
 repository = "https://github.com/dave-andersen/sharkmon-rs"
+categories = ["command-line-utilities"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
