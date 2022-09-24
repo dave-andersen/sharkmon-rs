@@ -1,6 +1,13 @@
 [package]
 name = "sharkmon"
-version = "0.2.0"
+version = "0.3.0"
+description = "Small rust utility to retrieve and serve Electro Industries Shark 100S power data"
+authors = ["David Andersen <dave.andersen@gmail.com>"]
+license = "Apache 2.0"
+readme = "README.md"
+keywords = ["shark", "modbus", "power"]
+homepage = "https://github.com/dave-andersen/sharkmon-rs"
+repository = "https://github.com/dave-andersen/sharkmon-rs"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

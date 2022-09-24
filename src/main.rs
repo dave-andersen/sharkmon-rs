@@ -86,8 +86,7 @@ async fn power(Extension(data): Extension<Arc<Mutex<PowerEwma>>>) -> Json<PowerE
 
 pub async fn device_update(pe_mutex: Arc<Mutex<PowerEwma>>, meter: String, verbose: bool) -> ! {
     loop {
-        let someerr = device_update_connect_loop(&pe_mutex, &meter, verbose).await;
-        if let Err(e) = someerr {
+        if let Err(e) = device_update_connect_loop(&pe_mutex, &meter, verbose).await {
             error!("Connection error, sleeping and retrying: {}", e);
         }
         pe_mutex.lock().unwrap().update(0.0, 0.0, 0.0);
@@ -158,10 +157,11 @@ pub async fn main() -> std::io::Result<()> {
 
         let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 8081));
         warn!("sharkmon starting on address {}", addr);
-        axum::Server::bind(&addr)
+        if let Err(e) = axum::Server::bind(&addr)
             .serve(app.into_make_service())
-            .await
-            .unwrap();
+            .await {
+                eprintln!("Could not start server: error: {}", e);
+            }
     }
     Ok(())
 }
