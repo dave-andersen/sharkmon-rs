@@ -20,7 +20,7 @@ tokio-modbus = "0.5"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 axum = "*"
-clap = {version = "*", features = ["derive"] }
+clap = {version = "4", features = ["derive"] }
 log = "*"
 env_logger = "*"
 
@@ -28,5 +28,5 @@ env_logger = "*"
 lto = true
 
 [build-dependencies]
-clap_mangen = "0.1"
-clap = {version = "*", features = ["derive"]}
+clap_mangen = "0.2.2"
+clap = {version = "4", features = ["derive"]}
