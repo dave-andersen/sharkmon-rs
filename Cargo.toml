@@ -19,7 +19,7 @@ tower-http = { version = "*", features=["fs"] }
 tokio-modbus = "0.5"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
-axum = "*"
+axum = "0.6"
 clap = {version = "4", features = ["derive"] }
 log = "*"
 env_logger = "*"

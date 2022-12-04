@@ -5,7 +5,7 @@
 //! See the 'Opt' struct for a description of command-line options.
 
 use axum::{
-    extract::Extension, http::StatusCode, routing::get, routing::get_service, Json, Router,
+    extract::State, http::StatusCode, routing::get, routing::get_service, Json, Router,
 };
 use log::{error, warn};
 use serde::Serialize;
@@ -89,7 +89,7 @@ pub async fn update_pe<T: tokio_modbus::client::Reader>(
     Ok(())
 }
 
-async fn power(Extension(data): Extension<Arc<Mutex<PowerEwma>>>) -> Json<PowerEwma> {
+async fn power(State(data): State<Arc<Mutex<PowerEwma>>>) -> Json<PowerEwma> {
     Json(data.lock().unwrap().clone())
 }
 
@@ -162,7 +162,7 @@ pub async fn main() -> std::io::Result<()> {
                 ),
             )
             .route("/power", get(power))
-            .layer(Extension(peclone));
+            .with_state(peclone);
 
         let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 8081));
         warn!("sharkmon starting on address {}", addr);
