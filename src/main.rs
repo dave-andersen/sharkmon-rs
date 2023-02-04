@@ -156,7 +156,7 @@ pub async fn main() -> std::io::Result<()> {
                     |error: std::io::Error| async move {
                         (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            format!("Unhandled internal error: {}", error),
+                            format!("Unhandled internal error: {error}"),
                         )
                     },
                 ),
@@ -165,11 +165,11 @@ pub async fn main() -> std::io::Result<()> {
             .with_state(peclone);
 
         let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 8081));
-        warn!("sharkmon starting on address {}", addr);
+        warn!("sharkmon starting on address {addr}");
         if let Err(e) = axum::Server::bind(&addr)
             .serve(app.into_make_service())
             .await {
-                eprintln!("Could not start server: error: {}", e);
+                eprintln!("Could not start server: error: {e}");
             }
     }
     Ok(())
