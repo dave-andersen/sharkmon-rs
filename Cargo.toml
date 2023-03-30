@@ -16,6 +16,7 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "*", features=["fs"] }
+tower = "*"
 tokio-modbus = "0.5"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"

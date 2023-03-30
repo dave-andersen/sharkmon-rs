@@ -1,17 +1,16 @@
 //! Sharkmon is a binary, not a library. It runs a small web server that
 //! displays the current power status of the monitored Shark power monitor.
 //! It can instead run as a command line utility to display the status locally.
-//! 
+//!
 //! See the 'Opt' struct for a description of command-line options.
 
-use axum::{
-    extract::State, http::StatusCode, routing::get, routing::get_service, Json, Router,
-};
+use axum::{extract::State, routing::get, Json, Router};
+use clap::Parser;
 use log::{error, warn};
 use serde::Serialize;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
-use clap::Parser;
+use tower::ServiceExt;
 
 /// Shark 100S power meter web gateway
 #[derive(Parser)]
@@ -24,12 +23,8 @@ struct Opt {
     /// The IP address/hostname and port of meter, e.g., 192.168.1.100:502
     meter: String,
 
-
     /// Disable the built in web server and show updates on the command line
-    #[clap(
-        short,
-        long = "no-web",
-    )]
+    #[clap(short, long = "no-web")]
     no_web: bool,
 }
 
@@ -152,14 +147,11 @@ pub async fn main() -> std::io::Result<()> {
         let app = Router::new()
             .route(
                 "/",
-                get_service(tower_http::services::ServeFile::new("sharkmon.html")).handle_error(
-                    |error: std::io::Error| async move {
-                        (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            format!("Unhandled internal error: {error}"),
-                        )
-                    },
-                ),
+                get(|request: axum::http::Request<axum::body::Body>| async {
+                    tower_http::services::ServeFile::new("sharkmon.html")
+                        .oneshot(request)
+                        .await
+                }),
             )
             .route("/power", get(power))
             .with_state(peclone);
@@ -168,9 +160,10 @@ pub async fn main() -> std::io::Result<()> {
         warn!("sharkmon starting on address {addr}");
         if let Err(e) = axum::Server::bind(&addr)
             .serve(app.into_make_service())
-            .await {
-                eprintln!("Could not start server: error: {e}");
-            }
+            .await
+        {
+            eprintln!("Could not start server: error: {e}");
+        }
     }
     Ok(())
 }
