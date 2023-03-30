@@ -17,7 +17,7 @@ edition = "2021"
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "*", features=["fs"] }
 tower = "*"
-tokio-modbus = "0.7"
+tokio-modbus = { version = "0.7", default-features = false, features = ["tcp-sync"] }
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 axum = "0.6"
