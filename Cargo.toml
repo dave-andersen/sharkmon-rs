@@ -1,6 +1,6 @@
 [package]
 name = "sharkmon"
-version = "0.3.0"
+version = "0.3.1"
 description = "Small rust utility to retrieve and serve Electro Industries Shark 100S power data"
 authors = ["David Andersen <dave.andersen@gmail.com>"]
 license = "Apache-2.0"
@@ -17,7 +17,7 @@ edition = "2021"
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "*", features=["fs"] }
 tower = "*"
-tokio-modbus = "0.5"
+tokio-modbus = "0.7"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 axum = "0.6"
