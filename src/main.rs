@@ -10,7 +10,7 @@ use log::{error, warn};
 use serde::Serialize;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
-use tower::ServiceExt;
+use tower::util::ServiceExt;
 
 /// Shark 100S power meter web gateway
 #[derive(Parser)]
@@ -158,12 +158,8 @@ pub async fn main() -> std::io::Result<()> {
 
         let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 8081));
         warn!("sharkmon starting on address {addr}");
-        if let Err(e) = axum::Server::bind(&addr)
-            .serve(app.into_make_service())
-            .await
-        {
-            eprintln!("Could not start server: error: {e}");
-        }
+        let listener = tokio::net::TcpListener::bind("0.0.0.0:8081").await.unwrap();
+        axum::serve(listener, app).await.unwrap();
     }
     Ok(())
 }
